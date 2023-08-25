@@ -130,24 +130,18 @@ contract ChainlinkTWAPTest is DSTest {
     function test_correct_setup() public {
         assertEq(chainlinkTwap.authorizedAccounts(me), 1);
         assertEq(address(chainlinkTwap.chainlinkAggregator()), address(aggregator));
-
         assertEq(chainlinkTwap.linkAggregatorTimestamp(), 0);
-        assertEq(chainlinkTwap.lastUpdateTime(), now - chainlinkTwap.updateDelay());
-        /*
+        assertEq(chainlinkTwap.lastUpdateTime(), 0);
         assertEq(chainlinkTwap.converterResultCumulative(), 0);
         assertEq(chainlinkTwap.windowSize(), windowSize);
         assertEq(chainlinkTwap.maxWindowSize(), maxWindowSize);
         assertEq(chainlinkTwap.updates(), 0);
-
         assertEq(uint(chainlinkTwap.multiplier()), 1);
         assertEq(uint(chainlinkTwap.granularity()), uint(granularity));
-
         assertEq(chainlinkTwap.staleThreshold(), 3);
         assertEq(chainlinkTwap.symbol(), "fast-gas");
         assertEq(chainlinkTwap.getObservationListLength(), 0);
-
         assertEq(address(chainlinkTwap.rewardRelayer()), address(relayer));
-       */
     }
     function testFail_setup_null_aggregator() public {
         chainlinkTwap = new ChainlinkTWAP(
@@ -285,11 +279,13 @@ contract ChainlinkTWAPTest is DSTest {
         uint256 converterResultCumulative = chainlinkTwap.converterResultCumulative();
 
         assertEq(uint256(chainlinkTwap.earliestObservationIndex()), 0);
-        assertEq(converterResultCumulative, 120 * 10**9 * (3599 + chainlinkTwap.updateDelay()));
+        // first update uses updateDelay for elapsedTime, so warp above has no effect
+        assertEq(converterResultCumulative, 120 * 10**9 * chainlinkTwap.updateDelay());
+        //assertEq(converterResultCumulative, 0);
         assertEq(medianPrice, 120 * 10**9);
         assertTrue(!isValid);
         assertEq(timestamp, now);
-        assertEq(timeAdjustedResult, 120 * 10**9 * (3599 + chainlinkTwap.updateDelay()));
+        assertEq(timeAdjustedResult, 120 * 10**9 * chainlinkTwap.updateDelay());
     }
     function test_wait_more_than_maxUpdateCallerReward_since_last_update() public {
         relayer.modifyParameters("maxRewardIncreaseDelay", 6 hours);
