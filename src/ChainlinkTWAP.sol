@@ -39,8 +39,8 @@ contract ChainlinkTWAP is GebMath {
     AggregatorInterface         public chainlinkAggregator;
     IncreasingRewardRelayerLike public rewardRelayer;
 
-    // Delay between updates after which the reward starts to increase
-    uint256 public periodSize;
+    // Delay between updates
+    uint256 public updateDelay;
     // Timestamp of the Chainlink aggregator
     uint256 public linkAggregatorTimestamp;
     // Last timestamp when the median was updated
@@ -91,6 +91,7 @@ contract ChainlinkTWAP is GebMath {
     constructor(
       address aggregator,
       uint256 windowSize_,
+      uint256 updateDelay_,
       uint256 maxWindowSize_,
       uint8   multiplier_,
       uint8   granularity_
@@ -99,14 +100,16 @@ contract ChainlinkTWAP is GebMath {
         require(multiplier_ >= 1, "ChainlinkTWAP/null-multiplier");
         require(granularity_ > 1, 'ChainlinkTWAP/null-granularity');
         require(windowSize_ > 0, 'ChainlinkTWAP/null-window-size');
+        require(updateDelay_ >= 900, 'ChainlinkTWAP/invalid-update-delay');
         require(
-          (periodSize = windowSize_ / granularity_) * granularity_ == windowSize_,
+          (windowSize_ / granularity_) * granularity_ == windowSize_,
           'ChainlinkTWAP/window-not-evenly-divisible'
         );
 
         authorizedAccounts[msg.sender] = 1;
 
         windowSize                     = windowSize_;
+        updateDelay                    = updateDelay_;
         maxWindowSize                  = maxWindowSize_;
         granularity                    = granularity_;
         multiplier                     = multiplier_;
@@ -169,6 +172,10 @@ contract ChainlinkTWAP is GebMath {
           require(data > windowSize, 'ChainlinkTWAP/invalid-max-window-size');
           maxWindowSize = data;
         }
+        else if (parameter == "updateDelay") {
+          require(data >= 900, "ChainlinkTWAP/invalid-update-delay");
+          updateDelay = data;
+        }
         else if (parameter == "staleThreshold") {
           require(data > 1, "ChainlinkTWAP/invalid-stale-threshold");
           staleThreshold = data;
@@ -220,10 +227,10 @@ contract ChainlinkTWAP is GebMath {
         require(address(rewardRelayer) != address(0), "ChainlinkTWAP/null-reward-relayer");
 
         uint256 elapsedTime = (chainlinkObservations.length == 0) ?
-          periodSize : subtract(now, chainlinkObservations[chainlinkObservations.length - 1].timestamp);
+          updateDelay : subtract(now, chainlinkObservations[chainlinkObservations.length - 1].timestamp);
 
         // Check delay between calls
-        require(elapsedTime >= periodSize, "ChainlinkTWAP/wait-more");
+        require(elapsedTime >= updateDelay, "ChainlinkTWAP/wait-more");
 
         int256 aggregatorResult     = chainlinkAggregator.latestAnswer();
         uint256 aggregatorTimestamp = chainlinkAggregator.latestTimestamp();
